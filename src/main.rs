@@ -23,13 +23,14 @@ fn visit_dirs(dir: &Path, depth:u32) -> io::Result<u64> {
     let mut size = metadata.len();
 
     if metadata.is_dir() {
-        for entry in fs::read_dir(dir)? {
+        fs::read_dir(dir)?.map(|entry| -> io::Result<()> {
             let entry = entry?;
             let path = entry.path();
 
             let child_size = visit_dirs(&path, depth + 1)?;
             size += child_size;
-        }
+            Ok(())
+        }).count();
     }
 
     Ok(size)
