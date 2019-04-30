@@ -1,5 +1,5 @@
 use std::io;
-use std::fs::{self, DirEntry};
+use std::fs::{self};
 use std::path::Path;
 use std::env;
 
@@ -10,25 +10,24 @@ use std::env;
  * /usr/bin/time -lp du -sk ~/Documents
  */
 
-fn visit_dirs(dir: &Path) -> io::Result<u64> {
-    if !dir.is_file() && !dir.is_dir()  {
-        return Ok(0);
-    }
+fn visit_dirs(dir: &Path, depth:u32) -> io::Result<u64> {
     let metadata = match dir.metadata() {
         Ok(metadata) => metadata,
-        Err(e) => {
-            println!("error reading path {} - Reason {}", dir.display(), e);
+        Err(_e) => {
+            // no permissions, or a symlink
+            // println!("error reading path {} - Reason {}", dir.display(), e);
             return Ok(0)
         }
     };
 
     let mut size = metadata.len();
+
     if metadata.is_dir() {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
 
-            let child_size = visit_dirs(&path)?;
+            let child_size = visit_dirs(&path, depth + 1)?;
             size += child_size;
         }
     }
@@ -44,9 +43,8 @@ fn main() {
     let args:Vec<String> =  env::args().collect();
     let len = args.len();
     let path = if len > 1 { &args[1] } else { "./" };
-    println!("path {}", path);
-    println!("args: {:?}, len: {}", args, args.len());
-    let size = visit_dirs(Path::new(path)).unwrap();
+    println!("Scanning path {}...", path);
+    let size = visit_dirs(Path::new(path), 0).unwrap();
 
-    println!("Ok done {}", friendly(size));
+    println!("Space scan done: {}", friendly(size));
 }
