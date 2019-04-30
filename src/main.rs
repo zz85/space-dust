@@ -1,3 +1,7 @@
+extern crate rayon;
+
+use rayon::prelude::*;
+
 use std::io;
 use std::fs::{self};
 use std::path::Path;
@@ -23,7 +27,7 @@ fn visit_dirs(dir: &Path, depth:u32) -> io::Result<u64> {
     let mut size = metadata.len();
 
     if metadata.is_dir() {
-        fs::read_dir(dir)?.map(|entry| -> io::Result<()> {
+        fs::read_dir(dir)?.into_iter().map(|entry| -> io::Result<()> {
             let entry = entry?;
             let path = entry.path();
 
