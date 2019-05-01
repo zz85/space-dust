@@ -7,18 +7,13 @@ use std::fs::{self, DirEntry};
 use std::path::Path;
 use std::env;
 
-/**
- * compile: rustc du.rs
- * run: compare on mac
- * /usr/bin/time -lp ./du ~/Documents
- * /usr/bin/time -lp du -sk ~/Documents
- */
-
-fn visit_dirs(dir: &Path, depth:u32) -> io::Result<u64> {
+fn par_visit_dir(dir: &Path, depth:u32) -> io::Result<u64> {
     let metadata = match dir.metadata() {
         Ok(metadata) => metadata,
         Err(_e) => {
             // no permissions, or a symlink
+            // we do not want to check dir.is_file or dir.is_dir first because
+            // of additional syscalls incurred
             // println!("error reading path {} - Reason {}", dir.display(), e);
             return Ok(0)
         }
@@ -32,10 +27,8 @@ fn visit_dirs(dir: &Path, depth:u32) -> io::Result<u64> {
         let results:u64 = entries.par_iter().map(|entry| {
             let path = entry.path();
 
-            match visit_dirs(&path, depth + 1) {
-                Ok(child_size) => {
-                    child_size
-                },
+            match par_visit_dir(&path, depth + 1) {
+                Ok(child_size) => child_size,
                 Err(_) => 0
             }
         }).sum();
@@ -54,8 +47,9 @@ fn main() {
     let args:Vec<String> =  env::args().collect();
     let len = args.len();
     let path = if len > 1 { &args[1] } else { "./" };
+
     println!("Scanning path {}...", path);
-    let size = visit_dirs(Path::new(path), 0).unwrap();
+    let size = par_visit_dir(Path::new(path), 0).unwrap();
 
     println!("Space scan done: {}", friendly(size));
 }
