@@ -3,7 +3,7 @@ extern crate rayon;
 use rayon::prelude::*;
 
 use std::io;
-use std::fs::{self};
+use std::fs::{self, DirEntry};
 use std::path::Path;
 use std::env;
 
@@ -27,14 +27,20 @@ fn visit_dirs(dir: &Path, depth:u32) -> io::Result<u64> {
     let mut size = metadata.len();
 
     if metadata.is_dir() {
-        fs::read_dir(dir)?.into_iter().map(|entry| -> io::Result<()> {
-            let entry = entry?;
+        let entries:Vec<DirEntry> = fs::read_dir(dir)?.into_iter().filter_map(|e| e.ok()).collect();
+
+        let results:u64 = entries.par_iter().map(|entry| {
             let path = entry.path();
 
-            let child_size = visit_dirs(&path, depth + 1)?;
-            size += child_size;
-            Ok(())
-        }).count();
+            match visit_dirs(&path, depth + 1) {
+                Ok(child_size) => {
+                    child_size
+                },
+                Err(_) => 0
+            }
+        }).sum();
+
+        size += results;
     }
 
     Ok(size)
